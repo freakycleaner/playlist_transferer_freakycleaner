@@ -1,0 +1,804 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Playlist Transfer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0a0a0f;
+      --surface: #111118;
+      --surface2: #1a1a24;
+      --border: #2a2a3a;
+      --spotify: #1db954;
+      --spotify-dark: #158a3e;
+      --yt: #ff0000;
+      --yt-dark: #cc0000;
+      --accent: #7c6af7;
+      --accent2: #f7c56a;
+      --text: #e8e8f0;
+      --muted: #7070a0;
+      --success: #1db954;
+      --warn: #f7c56a;
+      --radius: 12px;
+    }
+
+    body {
+      font-family: 'Space Mono', monospace;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* Animated grid background */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(124,106,247,0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(124,106,247,0.04) 1px, transparent 1px);
+      background-size: 48px 48px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 40px 24px 80px;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* ── Header ── */
+    header {
+      text-align: center;
+      margin-bottom: 56px;
+    }
+    .logo {
+      font-family: 'Syne', sans-serif;
+      font-weight: 800;
+      font-size: clamp(32px, 6vw, 56px);
+      letter-spacing: -1px;
+      background: linear-gradient(135deg, #7c6af7 0%, #f7c56a 60%, #1db954 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      line-height: 1;
+      margin-bottom: 12px;
+    }
+    .tagline {
+      color: var(--muted);
+      font-size: 13px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+    }
+
+    /* ── Cards ── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px;
+      margin-bottom: 20px;
+      transition: border-color 0.2s;
+    }
+    .card:hover { border-color: #3a3a5a; }
+
+    .card-title {
+      font-family: 'Syne', sans-serif;
+      font-weight: 700;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 3px;
+      color: var(--muted);
+      margin-bottom: 20px;
+    }
+
+    /* ── Platform Buttons ── */
+    .platform-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+
+    .platform-btn {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 16px 20px;
+      border-radius: 10px;
+      border: 1.5px solid var(--border);
+      background: var(--surface2);
+      cursor: pointer;
+      font-family: 'Space Mono', monospace;
+      font-size: 13px;
+      color: var(--text);
+      transition: all 0.2s;
+      text-decoration: none;
+    }
+    .platform-btn:hover { transform: translateY(-1px); }
+    .platform-btn.spotify { border-color: var(--spotify); }
+    .platform-btn.spotify:hover { background: rgba(29,185,84,0.12); box-shadow: 0 0 20px rgba(29,185,84,0.15); }
+    .platform-btn.youtube { border-color: var(--yt); }
+    .platform-btn.youtube:hover { background: rgba(255,0,0,0.1); box-shadow: 0 0 20px rgba(255,0,0,0.12); }
+    .platform-btn.connected { opacity: 0.7; cursor: default; }
+    .platform-btn.connected:hover { transform: none; }
+
+    .platform-icon { width: 28px; height: 28px; flex-shrink: 0; }
+    .btn-info { display: flex; flex-direction: column; gap: 2px; }
+    .btn-label { font-weight: 700; font-size: 13px; }
+    .btn-status { font-size: 10px; color: var(--muted); letter-spacing: 1px; }
+    .btn-status.ok { color: var(--success); }
+
+    /* ── YTMusic Upload ── */
+    .upload-area {
+      border: 1.5px dashed var(--border);
+      border-radius: 10px;
+      padding: 20px;
+      text-align: center;
+      margin-top: 14px;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .upload-area:hover { border-color: var(--yt); background: rgba(255,0,0,0.04); color: var(--text); }
+    #ytmusic-file { display: none; }
+
+    /* ── Transfer Panel ── */
+    .transfer-grid {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      gap: 16px;
+      align-items: end;
+    }
+
+    .select-group { display: flex; flex-direction: column; gap: 8px; }
+    .select-label { font-size: 10px; text-transform: uppercase; letter-spacing: 2px; color: var(--muted); }
+
+    select {
+      background: var(--surface2);
+      border: 1.5px solid var(--border);
+      color: var(--text);
+      padding: 12px 16px;
+      border-radius: 8px;
+      font-family: 'Space Mono', monospace;
+      font-size: 12px;
+      width: 100%;
+      cursor: pointer;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%237070a0' stroke-width='1.5' fill='none'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 14px center;
+      transition: border-color 0.2s;
+    }
+    select:focus { outline: none; border-color: var(--accent); }
+    select:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .arrow-box {
+      width: 40px;
+      height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--muted);
+      font-size: 18px;
+      margin-bottom: 0;
+    }
+
+    /* ── Buttons ── */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 14px 28px;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      font-family: 'Syne', sans-serif;
+      font-weight: 700;
+      font-size: 14px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      transition: all 0.2s;
+      width: 100%;
+      margin-top: 20px;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent), #5a4af0);
+      color: white;
+    }
+    .btn-primary:hover:not(:disabled) {
+      transform: translateY(-1px);
+      box-shadow: 0 8px 24px rgba(124,106,247,0.4);
+    }
+    .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    /* ── Progress ── */
+    .progress-section { display: none; }
+    .progress-section.visible { display: block; }
+
+    .progress-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    .progress-label { font-size: 12px; color: var(--muted); }
+    .progress-count { font-size: 12px; color: var(--accent); font-weight: 700; }
+
+    .progress-bar-track {
+      height: 4px;
+      background: var(--border);
+      border-radius: 2px;
+      overflow: hidden;
+      margin-bottom: 20px;
+    }
+    .progress-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      border-radius: 2px;
+      transition: width 0.4s ease;
+      width: 0%;
+    }
+
+    /* ── Report ── */
+    .report-section { display: none; }
+    .report-section.visible { display: block; }
+
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+    .stat-box {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 20px;
+      text-align: center;
+    }
+    .stat-number {
+      font-family: 'Syne', sans-serif;
+      font-weight: 800;
+      font-size: 36px;
+      line-height: 1;
+      margin-bottom: 6px;
+    }
+    .stat-number.total { color: var(--text); }
+    .stat-number.transferred { color: var(--success); }
+    .stat-number.skipped { color: var(--warn); }
+    .stat-label { font-size: 10px; text-transform: uppercase; letter-spacing: 2px; color: var(--muted); }
+
+    .song-list {
+      max-height: 280px;
+      overflow-y: auto;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+    }
+    .song-list::-webkit-scrollbar { width: 4px; }
+    .song-list::-webkit-scrollbar-track { background: transparent; }
+    .song-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    .song-item {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      font-size: 12px;
+    }
+    .song-item:last-child { border-bottom: none; }
+
+    .song-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      margin-top: 5px;
+    }
+    .song-dot.ok { background: var(--success); }
+    .song-dot.skip { background: var(--warn); }
+
+    .song-info { flex: 1; min-width: 0; }
+    .song-title { font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .song-artist { color: var(--muted); font-size: 11px; margin-top: 2px; }
+    .song-match { color: var(--muted); font-size: 10px; margin-top: 3px; font-style: italic; }
+
+    .confidence-badge {
+      flex-shrink: 0;
+      font-size: 10px;
+      padding: 2px 7px;
+      border-radius: 20px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+    }
+    .confidence-badge.high { background: rgba(29,185,84,0.15); color: var(--success); }
+    .confidence-badge.low { background: rgba(247,197,106,0.15); color: var(--warn); }
+
+    .tabs {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 12px;
+    }
+    .tab {
+      padding: 8px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-family: 'Space Mono', monospace;
+      font-size: 11px;
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--muted);
+      transition: all 0.2s;
+    }
+    .tab.active {
+      background: var(--surface2);
+      border-color: var(--border);
+      color: var(--text);
+    }
+
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    /* ── Toast ── */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px 20px;
+      font-size: 13px;
+      max-width: 360px;
+      z-index: 100;
+      transform: translateY(100px);
+      opacity: 0;
+      transition: all 0.3s;
+    }
+    .toast.show { transform: translateY(0); opacity: 1; }
+    .toast.error { border-color: var(--yt); }
+    .toast.success { border-color: var(--success); }
+
+    /* ── Spinner ── */
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner {
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @media (max-width: 600px) {
+      .platform-grid { grid-template-columns: 1fr; }
+      .transfer-grid { grid-template-columns: 1fr; }
+      .arrow-box { transform: rotate(90deg); margin: -8px auto; }
+      .stats-row { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <div class="logo">PLAYLIST TRANSFER</div>
+    <div class="tagline">Move music between Spotify &amp; YouTube Music</div>
+  </header>
+
+  <!-- Step 1: Connect Accounts -->
+  <div class="card">
+    <div class="card-title">01 — Connect Accounts</div>
+    <div class="platform-grid">
+      <button class="platform-btn spotify" id="spotify-btn" onclick="connectSpotify()">
+        <svg class="platform-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="12" cy="12" r="12" fill="#1DB954"/>
+          <path d="M16.5 16.2c-.2 0-.3-.1-.5-.2-2.2-1.3-4.9-1.6-8.1-.9-.3.1-.6-.1-.7-.4-.1-.3.1-.6.4-.7 3.5-.8 6.5-.5 8.9 1 .3.2.4.5.2.8-.1.3-.2.4-.2.4zm1.1-2.5c-.2 0-.4-.1-.5-.2-2.5-1.5-6.3-2-9.3-1.1-.4.1-.8-.1-.9-.5-.1-.4.1-.8.5-.9 3.4-1 7.6-.5 10.4 1.2.3.2.5.6.3.9-.1.4-.3.6-.5.6zm.1-2.6c-3-1.8-7.9-2-10.8-1.1-.5.1-.9-.1-1.1-.6-.1-.5.1-.9.6-1.1 3.3-1 8.7-.8 12.1 1.3.4.2.5.7.3 1.1-.3.3-.7.4-1.1.4z" fill="white"/>
+        </svg>
+        <div class="btn-info">
+          <span class="btn-label">Spotify</span>
+          <span class="btn-status" id="spotify-status">Click to connect</span>
+        </div>
+      </button>
+
+      <button class="platform-btn youtube" id="ytmusic-btn" onclick="showYTUpload()">
+        <svg class="platform-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="12" cy="12" r="12" fill="#FF0000"/>
+          <path d="M18.8 8.4c-.2-.8-.8-1.4-1.6-1.6C15.8 6.5 12 6.5 12 6.5s-3.8 0-5.2.3c-.8.2-1.4.8-1.6 1.6C5 9.8 5 12 5 12s0 2.2.2 3.6c.2.8.8 1.4 1.6 1.6 1.4.3 5.2.3 5.2.3s3.8 0 5.2-.3c.8-.2 1.4-.8 1.6-1.6.2-1.4.2-3.6.2-3.6s0-2.2-.2-3.6z" fill="white"/>
+          <polygon points="10,9.5 10,14.5 14.5,12" fill="#FF0000"/>
+        </svg>
+        <div class="btn-info">
+          <span class="btn-label">YouTube Music</span>
+          <span class="btn-status" id="ytmusic-status">Click to connect</span>
+        </div>
+      </button>
+    </div>
+
+    <!-- YTMusic auth upload -->
+    <div id="yt-upload-area" style="display:none; margin-top: 16px;">
+      <div class="upload-area" onclick="document.getElementById('ytmusic-file').click()">
+        <div style="font-size: 20px; margin-bottom: 6px;">📄</div>
+        <div>Upload <strong>headers_auth.json</strong></div>
+        <div style="font-size: 11px; margin-top: 4px;">Generated by running <code>ytmusicapi browser</code></div>
+      </div>
+      <input type="file" id="ytmusic-file" accept=".json" onchange="uploadYTHeaders(event)">
+    </div>
+  </div>
+
+  <!-- Step 2: Select & Transfer -->
+  <div class="card">
+    <div class="card-title">02 — Select Playlist &amp; Transfer</div>
+
+    <div class="transfer-grid">
+      <div class="select-group">
+        <label class="select-label">Source Platform</label>
+        <select id="source-platform" onchange="onSourceChange()">
+          <option value="">— Select source —</option>
+          <option value="spotify">Spotify</option>
+          <option value="ytmusic">YouTube Music</option>
+        </select>
+      </div>
+      <div class="arrow-box">→</div>
+      <div class="select-group">
+        <label class="select-label">Target Platform</label>
+        <select id="target-platform">
+          <option value="">— Select target —</option>
+          <option value="spotify">Spotify</option>
+          <option value="ytmusic">YouTube Music</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="select-group" style="margin-top: 14px;">
+      <label class="select-label">Playlist</label>
+      <select id="playlist-select" disabled>
+        <option value="">— Choose source first —</option>
+      </select>
+    </div>
+
+    <!-- Progress -->
+    <div class="progress-section" id="progress-section">
+      <div style="margin-top: 20px; padding: 16px; background: var(--surface2); border-radius: 10px;">
+        <div class="progress-header">
+          <span class="progress-label" id="progress-label">Fetching tracks...</span>
+          <span class="progress-count" id="progress-count"></span>
+        </div>
+        <div class="progress-bar-track">
+          <div class="progress-bar-fill" id="progress-bar"></div>
+        </div>
+        <div id="current-song" style="font-size: 11px; color: var(--muted); font-style: italic;"></div>
+      </div>
+    </div>
+
+    <button class="btn btn-primary" id="transfer-btn" onclick="startTransfer()" disabled>
+      Transfer Playlist
+    </button>
+  </div>
+
+  <!-- Step 3: Report -->
+  <div class="card report-section" id="report-section">
+    <div class="card-title">03 — Transfer Report</div>
+
+    <div class="stats-row">
+      <div class="stat-box">
+        <div class="stat-number total" id="stat-total">0</div>
+        <div class="stat-label">Total Songs</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-number transferred" id="stat-transferred">0</div>
+        <div class="stat-label">Transferred</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-number skipped" id="stat-skipped">0</div>
+        <div class="stat-label">Skipped</div>
+      </div>
+    </div>
+
+    <div class="tabs">
+      <button class="tab active" onclick="showTab('transferred')">✓ Transferred</button>
+      <button class="tab" onclick="showTab('skipped')">✗ Skipped</button>
+    </div>
+
+    <div id="tab-transferred" class="tab-content active">
+      <div class="song-list" id="transferred-list"></div>
+    </div>
+    <div id="tab-skipped" class="tab-content">
+      <div class="song-list" id="skipped-list"></div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  const API = 'http://localhost:8000';
+  let spotifyToken = null;
+  let ytConnected = false;
+  let playlists = [];
+
+  // ── Auth ──────────────────────────────────────────────────────────────────
+
+  async function connectSpotify() {
+    // Redirect to Spotify OAuth (backend handles the redirect)
+    window.location.href = `${API}/login/spotify`;
+  }
+
+  function showYTUpload() {
+    const area = document.getElementById('yt-upload-area');
+    area.style.display = area.style.display === 'none' ? 'block' : 'none';
+  }
+
+  async function uploadYTHeaders(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const json = JSON.parse(text);
+      const resp = await fetch(`${API}/login/ytmusic/upload`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(json),
+      });
+      const data = await resp.json();
+      if (resp.ok) {
+        setYTConnected(true);
+        showToast('YouTube Music connected!', 'success');
+        document.getElementById('yt-upload-area').style.display = 'none';
+      } else {
+        showToast(data.detail || 'YTMusic connection failed', 'error');
+      }
+    } catch (e) {
+      showToast('Invalid JSON file', 'error');
+    }
+  }
+
+  function setSpotifyConnected(token) {
+    spotifyToken = token;
+    const btn = document.getElementById('spotify-btn');
+    btn.classList.add('connected');
+    document.getElementById('spotify-status').textContent = '✓ Connected';
+    document.getElementById('spotify-status').className = 'btn-status ok';
+    checkTransferReady();
+  }
+
+  function setYTConnected(val) {
+    ytConnected = val;
+    const btn = document.getElementById('ytmusic-btn');
+    btn.classList.add('connected');
+    document.getElementById('ytmusic-status').textContent = '✓ Connected';
+    document.getElementById('ytmusic-status').className = 'btn-status ok';
+    checkTransferReady();
+  }
+
+  // Handle OAuth callback token in URL hash
+  function checkOAuthCallback() {
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get('access_token');
+    if (token) {
+      setSpotifyConnected(token);
+      window.history.replaceState({}, '', '/');
+      showToast('Spotify connected!', 'success');
+    }
+  }
+
+  // ── Playlist Loading ──────────────────────────────────────────────────────
+
+  async function onSourceChange() {
+    const source = document.getElementById('source-platform').value;
+    const select = document.getElementById('playlist-select');
+    const targetSelect = document.getElementById('target-platform');
+
+    // Set opposite as target
+    if (source === 'spotify') {
+      targetSelect.value = 'ytmusic';
+    } else if (source === 'ytmusic') {
+      targetSelect.value = 'spotify';
+    }
+
+    if (!source) {
+      select.disabled = true;
+      select.innerHTML = '<option>— Choose source first —</option>';
+      return;
+    }
+
+    // Check auth
+    if (source === 'spotify' && !spotifyToken) {
+      showToast('Please connect Spotify first', 'error');
+      document.getElementById('source-platform').value = '';
+      return;
+    }
+    if (source === 'ytmusic' && !ytConnected) {
+      showToast('Please connect YouTube Music first', 'error');
+      document.getElementById('source-platform').value = '';
+      return;
+    }
+
+    select.disabled = true;
+    select.innerHTML = '<option>Loading playlists...</option>';
+
+    try {
+      const url = new URL(`${API}/get-playlists`);
+      url.searchParams.set('source', source);
+      if (spotifyToken) url.searchParams.set('spotify_token', spotifyToken);
+
+      const resp = await fetch(url);
+      const data = await resp.json();
+      playlists = data.playlists || [];
+
+      select.innerHTML = '<option value="">— Select a playlist —</option>';
+      playlists.forEach(p => {
+        const opt = document.createElement('option');
+        opt.value = p.id;
+        opt.textContent = `${p.name} (${p.track_count} tracks)`;
+        select.appendChild(opt);
+      });
+      select.disabled = false;
+      select.addEventListener('change', checkTransferReady);
+    } catch (e) {
+      showToast('Failed to load playlists', 'error');
+      select.innerHTML = '<option>Error loading playlists</option>';
+    }
+  }
+
+  function checkTransferReady() {
+    const source = document.getElementById('source-platform').value;
+    const target = document.getElementById('target-platform').value;
+    const playlist = document.getElementById('playlist-select').value;
+    const btn = document.getElementById('transfer-btn');
+    btn.disabled = !(source && target && playlist && source !== target);
+  }
+
+  // ── Transfer ──────────────────────────────────────────────────────────────
+
+  async function startTransfer() {
+    const source = document.getElementById('source-platform').value;
+    const target = document.getElementById('target-platform').value;
+    const playlistId = document.getElementById('playlist-select').value;
+    const playlistName = document.getElementById('playlist-select').selectedOptions[0]?.text || 'My Playlist';
+
+    if (!source || !target || !playlistId) return;
+
+    // Show progress
+    const btn = document.getElementById('transfer-btn');
+    btn.disabled = true;
+    btn.innerHTML = '<div class="spinner"></div> Transferring...';
+
+    const progressSection = document.getElementById('progress-section');
+    progressSection.classList.add('visible');
+    document.getElementById('report-section').classList.remove('visible');
+
+    setProgress(0, 'Connecting to APIs...');
+
+    try {
+      setProgress(10, 'Fetching source playlist...');
+      await sleep(300);
+      setProgress(30, 'Searching target platform...');
+      await sleep(200);
+      setProgress(50, 'Matching songs...');
+
+      const body = {
+        source, target,
+        playlist_id: playlistId,
+        playlist_name: playlistName.split(' (')[0], // strip track count
+        spotify_token: spotifyToken,
+      };
+
+      const resp = await fetch(`${API}/transfer-playlist`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+
+      setProgress(80, 'Creating playlist...');
+      await sleep(200);
+
+      const report = await resp.json();
+
+      if (!resp.ok) {
+        throw new Error(report.detail || 'Transfer failed');
+      }
+
+      setProgress(100, 'Done!');
+      await sleep(400);
+
+      showReport(report);
+      showToast(`Transfer complete! ${report.transferred}/${report.total} songs moved.`, 'success');
+    } catch (e) {
+      showToast(e.message || 'Transfer failed', 'error');
+      progressSection.classList.remove('visible');
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = 'Transfer Playlist';
+    }
+  }
+
+  function setProgress(pct, label) {
+    document.getElementById('progress-bar').style.width = pct + '%';
+    document.getElementById('progress-label').textContent = label;
+    document.getElementById('progress-count').textContent = pct + '%';
+  }
+
+  // ── Report ────────────────────────────────────────────────────────────────
+
+  function showReport(report) {
+    document.getElementById('stat-total').textContent = report.total;
+    document.getElementById('stat-transferred').textContent = report.transferred;
+    document.getElementById('stat-skipped').textContent = report.skipped;
+
+    // Transferred list
+    const tList = document.getElementById('transferred-list');
+    tList.innerHTML = report.transferred_songs.length === 0
+      ? '<div class="song-item" style="color:var(--muted)">No songs transferred</div>'
+      : report.transferred_songs.map(s => `
+        <div class="song-item">
+          <div class="song-dot ok"></div>
+          <div class="song-info">
+            <div class="song-title">${esc(s.title)}</div>
+            <div class="song-artist">${esc(s.artist)}</div>
+            <div class="song-match">→ ${esc(s.matched_title)} · ${esc(s.matched_artist)}</div>
+          </div>
+          <div class="confidence-badge high">${s.confidence}%</div>
+        </div>
+      `).join('');
+
+    // Skipped list
+    const sList = document.getElementById('skipped-list');
+    sList.innerHTML = report.skipped_songs.length === 0
+      ? '<div class="song-item" style="color:var(--muted)">No songs skipped — perfect transfer!</div>'
+      : report.skipped_songs.map(s => `
+        <div class="song-item">
+          <div class="song-dot skip"></div>
+          <div class="song-info">
+            <div class="song-title">${esc(s.title)}</div>
+            <div class="song-artist">${esc(s.artist)}</div>
+            <div class="song-match">${esc(s.reason)}${s.best_match ? ` · Best: ${esc(s.best_match)}` : ''}</div>
+          </div>
+          ${s.confidence > 0 ? `<div class="confidence-badge low">${s.confidence}%</div>` : ''}
+        </div>
+      `).join('');
+
+    document.getElementById('report-section').classList.add('visible');
+    document.getElementById('report-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function showTab(name) {
+    document.querySelectorAll('.tab').forEach((t, i) => {
+      t.classList.toggle('active', (i === 0 && name === 'transferred') || (i === 1 && name === 'skipped'));
+    });
+    document.getElementById('tab-transferred').classList.toggle('active', name === 'transferred');
+    document.getElementById('tab-skipped').classList.toggle('active', name === 'skipped');
+  }
+
+  // ── Utils ─────────────────────────────────────────────────────────────────
+
+  function esc(str) {
+    return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+  function showToast(msg, type = '') {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className = `toast ${type} show`;
+    setTimeout(() => t.classList.remove('show'), 4000);
+  }
+
+  // Wire up target select change
+  document.getElementById('target-platform').addEventListener('change', checkTransferReady);
+
+  // Check on page load for OAuth callback
+  checkOAuthCallback();
+</script>
+</body>
+</html>
